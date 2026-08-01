@@ -1,0 +1,114 @@
+name: Build Grip Challenge Native APK
+
+on:
+  push:
+    branches:
+      - grip-native-build-20260801
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout temporary build branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+          yes | "${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Compile and sign native APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+          ANDROID_JAR="${SDK_ROOT}/platforms/android-35/android.jar"
+          BUILD_TOOLS="${SDK_ROOT}/build-tools/35.0.0"
+
+          rm -rf build-grip
+          mkdir -p build-grip/classes build-grip/dex
+
+          javac \
+            -encoding UTF-8 \
+            -source 8 \
+            -target 8 \
+            -classpath "${ANDROID_JAR}" \
+            -d build-grip/classes \
+            $(find grip-native/src -name '*.java' -type f)
+
+          "${BUILD_TOOLS}/d8" \
+            --lib "${ANDROID_JAR}" \
+            --min-api 26 \
+            --output build-grip/dex \
+            $(find build-grip/classes -name '*.class' -type f)
+
+          "${BUILD_TOOLS}/aapt2" link \
+            -o build-grip/app-unsigned.apk \
+            --manifest grip-native/AndroidManifest.xml \
+            -I "${ANDROID_JAR}" \
+            --min-sdk-version 26 \
+            --target-sdk-version 35
+
+          (
+            cd build-grip/dex
+            zip -q -u ../app-unsigned.apk classes.dex
+          )
+
+          keytool -genkeypair \
+            -keystore build-grip/grip-release.jks \
+            -storepass gripchallenge \
+            -keypass gripchallenge \
+            -alias gripchallenge \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Grip Challenge, OU=Office Challenge, O=Grip Challenge, L=Torino, ST=Piemonte, C=IT"
+
+          "${BUILD_TOOLS}/zipalign" \
+            -f \
+            -p \
+            4 \
+            build-grip/app-unsigned.apk \
+            build-grip/app-aligned.apk
+
+          "${BUILD_TOOLS}/apksigner" sign \
+            --ks build-grip/grip-release.jks \
+            --ks-pass pass:gripchallenge \
+            --key-pass pass:gripchallenge \
+            --out build-grip/Grip-Challenge-40KG-Native.apk \
+            build-grip/app-aligned.apk
+
+          "${BUILD_TOOLS}/apksigner" verify \
+            --verbose \
+            --print-certs \
+            build-grip/Grip-Challenge-40KG-Native.apk
+
+          sha256sum build-grip/Grip-Challenge-40KG-Native.apk \
+            | tee build-grip/Grip-Challenge-40KG-Native.apk.sha256
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: grip-challenge-native-apk
+          path: |
+            build-grip/Grip-Challenge-40KG-Native.apk
+            build-grip/Grip-Challenge-40KG-Native.apk.sha256
+          if-no-files-found: error
+          retention-days: 7
