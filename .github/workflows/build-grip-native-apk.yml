@@ -106,6 +106,23 @@ jobs:
           sha256sum build-grip/Grip-Challenge-40KG-Native.apk \
             | tee build-grip/Grip-Challenge-40KG-Native.apk.sha256
 
+      - name: Smoke test launch on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            adb install -r build-grip/Grip-Challenge-40KG-Native.apk
+            adb shell am force-stop it.gripchallenge.office
+            adb shell am start -W -n it.gripchallenge.office/.MainActivity | tee build-grip/launch-result.txt
+            grep -q "Status: ok" build-grip/launch-result.txt
+            sleep 3
+            adb shell pidof it.gripchallenge.office
+            adb shell dumpsys activity activities | grep -q "it.gripchallenge.office/.MainActivity"
+
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
@@ -113,5 +130,6 @@ jobs:
           path: |
             build-grip/Grip-Challenge-40KG-Native.apk
             build-grip/Grip-Challenge-40KG-Native.apk.sha256
+            build-grip/launch-result.txt
           if-no-files-found: error
           retention-days: 7
