@@ -113,8 +113,8 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
           script: |
-            set -euo pipefail
             adb install -r build-grip/Grip-Challenge-40KG-Native.apk
             adb shell am force-stop it.gripchallenge.office
             adb shell am start -W -n it.gripchallenge.office/.MainActivity | tee build-grip/launch-result.txt
