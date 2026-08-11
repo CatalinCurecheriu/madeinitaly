@@ -40,8 +40,25 @@ jobs:
           rm -rf build-grip
           mkdir -p build-grip/classes build-grip/dex build-grip/assets
           cat grip-v2/MainActivity.part* > build-grip/MainActivity.java
-          cat grip-v2/assetszip.part00 grip-v2/assetszip.part01 grip-v2/assetszip.part02 grip-v2/assetstail.part00 grip-v2/assetstail.part01 grip-v2/assetstail.part02 grip-v2/assetstail.part03 > build-grip/assets.zip.b64
+          cat > build-grip/assets-parts.sha256 <<'EOF'
+          212a6a5429e9bbb2f9b203b4f723392620b423d2e738b5c543c8a9fdd53df606  grip-v2/assetszip.part00
+          53aec42ae9a55f7eb34375d42e91ce3d3e6fa9058fdaa372079cbba08fa99ce6  grip-v2/assetszip.part01
+          bb286625f5fda6b24709db32b38971a12b4981b88ecaacbb138890efc87eefdf  grip-v2/assetszip.part02
+          9b69895991686daa2ba147acf4a27ce2e26e0011c96cef2563a7c01a68e64d11  grip-v2/assetstail.part00
+          904e471a38de4f15915a2cc74f2c129c7a2879eff28e4096f756a515b0c4e42c  grip-v2/assetstail.part01
+          79f43663fb70d383b2253af9ff4ba34544565a0459ae90322eb2e36ed5d2fd2b  grip-v2/assetfix.part00
+          1b20730f1e84df336bdc727ae40ac9da464d2e084a45e2436b121c9514f05551  grip-v2/assetfix.part01
+          4e6f60f5671e40922eed9412503e77aba836b838491bbe7e41b7aa856ca9557a  grip-v2/assetfix.part02
+          0357009435d65175532c5792c8b9dd8412e8364658a4331554f150e186b1fab6  grip-v2/assetfix.part03
+          08747be259d3f793cd34c8acd61857d63b236fb3b2994c8985f00cb951669027  grip-v2/assetfix.part04
+          ed310212f8adc6a670a04ed6e25c32c58f08f3f1ad7117f60f09eacf3eab7d1e  grip-v2/assetfix.part05
+          312988246cc8447155d7684d5de763e63ffd178e9ead01fa8e1897ba6c048b17  grip-v2/assetstail.part03
+          EOF
+          sha256sum -c build-grip/assets-parts.sha256
+          cat grip-v2/assetszip.part00 grip-v2/assetszip.part01 grip-v2/assetszip.part02 grip-v2/assetstail.part00 grip-v2/assetstail.part01 grip-v2/assetfix.part00 grip-v2/assetfix.part01 grip-v2/assetfix.part02 grip-v2/assetfix.part03 grip-v2/assetfix.part04 grip-v2/assetfix.part05 grip-v2/assetstail.part03 > build-grip/assets.zip.b64
+          echo "70b914d9afda7866aebc54eb97fc6c59e876c84ef203f3485b359aa550cbca1b  build-grip/assets.zip.b64" | sha256sum -c -
           base64 -d build-grip/assets.zip.b64 > build-grip/assets.zip
+          echo "9a23b241105d058e2da52bd1f92012029ae450c2e88910420b26ff371e90de43  build-grip/assets.zip" | sha256sum -c -
           unzip -q build-grip/assets.zip -d build-grip/assets-raw
           cp build-grip/assets-raw/product_tiny.jpg build-grip/assets/product.jpg
           for i in 1 2 3 4 5 6 7 8; do cp "build-grip/assets-raw/avatar${i}_tiny.jpg" "build-grip/assets/avatar${i}.png"; done
