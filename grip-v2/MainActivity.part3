@@ -1,0 +1,172 @@
+
+        body.addView(circle, circleLp);
+        body.addView(space(14));
+
+        timerDisplay = text("00:00.00", 48, WHITE, Typeface.BOLD);
+        timerDisplay.setGravity(Gravity.CENTER);
+        body.addView(timerDisplay, lpMatchWrap());
+        body.addView(space(10));
+        TextView hint = text("Stringi forte. Il tempo parte dopo il countdown 3-2-1.", 13, MUTED, Typeface.NORMAL);
+        hint.setGravity(Gravity.CENTER);
+        body.addView(hint, lpMatchWrap());
+        body.addView(space(20));
+
+        timerMainButton = actionButton("▶  AVVIA", GREEN, Color.WHITE);
+        timerMainButton.setOnClickListener(v -> timerMainAction());
+        body.addView(timerMainButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(62)));
+        body.addView(space(10));
+
+        LinearLayout secondary = new LinearLayout(this);
+        secondary.setOrientation(LinearLayout.HORIZONTAL);
+        timerResetButton = actionButton("↻  RESET", CARD_2, WHITE);
+        timerSaveButton = actionButton("★  SALVA TEMPO", GOLD, Color.BLACK);
+        timerSaveButton.setEnabled(false);
+        timerSaveButton.setAlpha(0.45f);
+        timerResetButton.setOnClickListener(v -> resetTimer());
+        timerSaveButton.setOnClickListener(v -> saveTimerResult());
+        secondary.addView(timerResetButton, new LinearLayout.LayoutParams(0, dp(54), 1));
+        secondary.addView(spaceH(10));
+        secondary.addView(timerSaveButton, new LinearLayout.LayoutParams(0, dp(54), 1));
+        body.addView(secondary, lpMatchWrap());
+        body.addView(space(18));
+
+        LinearLayout rule = card();
+        rule.setOrientation(LinearLayout.HORIZONTAL);
+        CircleAvatarView miniProduct = new CircleAvatarView(this, productBitmap);
+        miniProduct.setSelectedRing(GOLD, 2);
+        rule.addView(miniProduct, new LinearLayout.LayoutParams(dp(62), dp(62)));
+        rule.addView(spaceH(12));
+        TextView ruleText = text("REGOLA\nGrip impostato a 40 KG e manici completamente chiusi. Stop quando iniziano a separarsi.", 12, Color.rgb(220,220,220), Typeface.NORMAL);
+        ruleText.setLineSpacing(dp(2), 1f);
+        rule.addView(ruleText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        body.addView(rule, lpMatchWrap());
+        body.addView(space(28));
+        return scroll;
+    }
+
+    private View buildLeaderboardPage() {
+        ScrollView scroll = scroll();
+        LinearLayout body = pageBody();
+        scroll.addView(body);
+        TextView title = text("CLASSIFICA", 27, GOLD, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        body.addView(title);
+        body.addView(space(4));
+        TextView sub = text("Il migliore tempo personale di ogni partecipante", 12, MUTED, Typeface.NORMAL);
+        sub.setGravity(Gravity.CENTER);
+        body.addView(sub);
+        body.addView(space(16));
+
+        podiumContainer = new LinearLayout(this);
+        podiumContainer.setOrientation(LinearLayout.HORIZONTAL);
+        podiumContainer.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        body.addView(podiumContainer, lpMatchWrap());
+        body.addView(space(18));
+
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        TextView h1 = sectionTitle("LEADERBOARD");
+        TextView reset = text("AZZERA", 11, RED, Typeface.BOLD);
+        reset.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        reset.setOnClickListener(v -> confirmResetAll());
+        head.addView(h1, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        head.addView(reset, new LinearLayout.LayoutParams(dp(80), dp(36)));
+        body.addView(head);
+        body.addView(space(8));
+
+        rankEmpty = text("Nessun risultato. Aggiungi il primo tempo!", 14, MUTED, Typeface.NORMAL);
+        rankEmpty.setGravity(Gravity.CENTER);
+        rankEmpty.setPadding(dp(10), dp(30), dp(10), dp(30));
+        rankEmpty.setBackground(bg(CARD, 18, BORDER, 1));
+        body.addView(rankEmpty, lpMatchWrap());
+
+        leaderboardContainer = new LinearLayout(this);
+        leaderboardContainer.setOrientation(LinearLayout.VERTICAL);
+        body.addView(leaderboardContainer, lpMatchWrap());
+        body.addView(space(28));
+        return scroll;
+    }
+
+    private void refreshAll() {
+        refreshStats();
+        refreshHomePodium();
+        refreshLeaderboard();
+    }
+
+    private void refreshStats() {
+        List<Leader> leaders = makeLeaders();
+        statParticipants.setText(String.valueOf(leaders.size()));
+        statAttempts.setText(String.valueOf(results.size()));
+        if (leaders.isEmpty()) statRecord.setText("--:--.--");
+        else statRecord.setText(formatTime(leaders.get(0).bestCs));
+    }
+
+    private void refreshHomePodium() {
+        if (homeTop3 == null) return;
+        homeTop3.removeAllViews();
+        List<Leader> leaders = makeLeaders();
+        if (leaders.isEmpty()) {
+            TextView empty = text("Il podio apparirà dopo i primi risultati.", 13, MUTED, Typeface.NORMAL);
+            empty.setGravity(Gravity.CENTER);
+            empty.setBackground(bg(CARD, 18, BORDER, 1));
+            empty.setPadding(dp(12), dp(22), dp(12), dp(22));
+            homeTop3.addView(empty, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            return;
+        }
+        int[] order = leaders.size() >= 3 ? new int[]{1,0,2} : leaders.size() == 2 ? new int[]{1,0} : new int[]{0};
+        for (int idx : order) {
+            Leader l = leaders.get(idx);
+            homeTop3.addView(podiumMini(l, idx + 1), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        }
+    }
+
+    private View podiumMini(Leader l, int rank) {
+        LinearLayout p = new LinearLayout(this);
+        p.setOrientation(LinearLayout.VERTICAL);
+        p.setGravity(Gravity.CENTER);
+        p.setPadding(dp(5), dp(rank == 1 ? 0 : 18), dp(5), 0);
+        String medal = rank == 1 ? "♛" : rank == 2 ? "●" : "●";
+        int medalColor = rank == 1 ? GOLD : rank == 2 ? Color.LTGRAY : Color.rgb(205, 127, 50);
+        TextView m = text(medal, rank == 1 ? 34 : 24, medalColor, Typeface.BOLD);
+        m.setGravity(Gravity.CENTER);
+        p.addView(m, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(rank == 1 ? 42 : 34)));
+        CircleAvatarView av = new CircleAvatarView(this, avatarFor(l.avatar));
+        av.setSelectedRing(medalColor, rank == 1 ? 5 : 3);
+        LinearLayout.LayoutParams avLp = new LinearLayout.LayoutParams(dp(rank == 1 ? 72 : 58), dp(rank == 1 ? 72 : 58));
+        avLp.gravity = Gravity.CENTER;
+        p.addView(av, avLp);
+        TextView name = text(shortName(l.name), 12, WHITE, Typeface.BOLD);
+        name.setGravity(Gravity.CENTER);
+        p.addView(name);
+        TextView time = text(formatTime(l.bestCs), 13, rank == 1 ? GOLD : WHITE, Typeface.BOLD);
+        time.setGravity(Gravity.CENTER);
+        p.addView(time);
+        TextView number = text(String.valueOf(rank), 25, WHITE, Typeface.BOLD);
+        number.setGravity(Gravity.CENTER);
+        number.setBackground(bg(rank == 1 ? Color.rgb(130, 96, 0) : CARD_2, 8, medalColor, 1));
+        LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(rank == 1 ? 54 : 44));
+        nlp.setMargins(dp(5), dp(6), dp(5), 0);
+        p.addView(number, nlp);
+        return p;
+    }
+
+    private void refreshLeaderboard() {
+        if (leaderboardContainer == null) return;
+        leaderboardContainer.removeAllViews();
+        podiumContainer.removeAllViews();
+        List<Leader> leaders = makeLeaders();
+        rankEmpty.setVisibility(leaders.isEmpty() ? View.VISIBLE : View.GONE);
+        leaderboardContainer.setVisibility(leaders.isEmpty() ? View.GONE : View.VISIBLE);
+        podiumContainer.setVisibility(leaders.isEmpty() ? View.GONE : View.VISIBLE);
+
+        if (!leaders.isEmpty()) {
+            int[] order = leaders.size() >= 3 ? new int[]{1,0,2} : leaders.size() == 2 ? new int[]{1,0} : new int[]{0};
+            for (int idx : order) {
+                Leader l = leaders.get(idx);
+                podiumContainer.addView(podiumLarge(l, idx + 1), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            }
+        }
+
+        for (int i = 0; i < leaders.size(); i++) {
+            Leader l = leaders.get(i);
+            leaderboardContainer.addView(leaderRow(l, i +
