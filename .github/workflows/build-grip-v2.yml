@@ -40,7 +40,7 @@ jobs:
           rm -rf build-grip
           mkdir -p build-grip/classes build-grip/dex build-grip/assets
           cat grip-v2/MainActivity.part* > build-grip/MainActivity.java
-          cat grip-v2/assetszip.part* > build-grip/assets.zip.b64
+          cat grip-v2/assetszip.part00 grip-v2/assetszip.part01 grip-v2/assetszip.part02 grip-v2/assetstail.part00 grip-v2/assetstail.part01 grip-v2/assetstail.part02 grip-v2/assetstail.part03 > build-grip/assets.zip.b64
           base64 -d build-grip/assets.zip.b64 > build-grip/assets.zip
           unzip -q build-grip/assets.zip -d build-grip/assets-raw
           cp build-grip/assets-raw/product_tiny.jpg build-grip/assets/product.jpg
