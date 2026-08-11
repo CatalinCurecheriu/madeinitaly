@@ -1,0 +1,245 @@
+ssage("Verranno eliminati tutti i tentativi di questo partecipante.")
+                .setNegativeButton("Annulla", null)
+                .setPositiveButton("Elimina", (d, w) -> {
+                    String key = name.trim().toLowerCase(Locale.ROOT);
+                    for (int i = results.size() - 1; i >= 0; i--) {
+                        if (results.get(i).name.trim().toLowerCase(Locale.ROOT).equals(key)) results.remove(i);
+                    }
+                    saveResults(); refreshAll();
+                }).show();
+    }
+
+    private void confirmResetAll() {
+        new AlertDialog.Builder(this)
+                .setTitle("Azzerare la challenge?")
+                .setMessage("Tutti i risultati verranno eliminati definitivamente.")
+                .setNegativeButton("Annulla", null)
+                .setPositiveButton("Azzera", (d, w) -> { results.clear(); saveResults(); refreshAll(); })
+                .show();
+    }
+
+    private List<Leader> makeLeaders() {
+        Map<String, Leader> map = new HashMap<>();
+        for (ResultEntry r : results) {
+            String key = r.name.trim().toLowerCase(Locale.ROOT);
+            Leader l = map.get(key);
+            if (l == null) {
+                l = new Leader(r.name, r.cs, 1, r.avatar, r.timestamp);
+                map.put(key, l);
+            } else {
+                l.attempts++;
+                if (r.cs > l.bestCs) {
+                    l.bestCs = r.cs;
+                    l.avatar = r.avatar;
+                    l.bestTimestamp = r.timestamp;
+                    l.name = r.name;
+                }
+            }
+        }
+        List<Leader> list = new ArrayList<>(map.values());
+        Collections.sort(list, new Comparator<Leader>() {
+            @Override public int compare(Leader a, Leader b) {
+                int c = Long.compare(b.bestCs, a.bestCs);
+                return c != 0 ? c : a.name.compareToIgnoreCase(b.name);
+            }
+        });
+        return list;
+    }
+
+    private void loadResults() {
+        results.clear();
+        try {
+            JSONArray arr = new JSONArray(prefs.getString("results", "[]"));
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                results.add(new ResultEntry(o.optString("name", "Partecipante"), o.optLong("cs", 0), o.optInt("avatar", 0), o.optLong("ts", System.currentTimeMillis())));
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void saveResults() {
+        JSONArray arr = new JSONArray();
+        try {
+            for (ResultEntry r : results) {
+                JSONObject o = new JSONObject();
+                o.put("name", r.name); o.put("cs", r.cs); o.put("avatar", r.avatar); o.put("ts", r.timestamp);
+                arr.put(o);
+            }
+        } catch (Exception ignored) {}
+        prefs.edit().putString("results", arr.toString()).apply();
+    }
+
+    private Bitmap avatarFor(int idx) {
+        if (idx < 0 || idx >= avatars.length) idx = 0;
+        return avatars[idx];
+    }
+
+    private String cleanName(String s) {
+        if (s == null) return "";
+        return s.trim().replaceAll("\\s+", " ");
+    }
+
+    private int number(String s) {
+        try { return Integer.parseInt(s.trim()); } catch (Exception e) { return 0; }
+    }
+
+    private String formatTime(long cs) {
+        long min = cs / 6000L;
+        long sec = (cs / 100L) % 60L;
+        long cent = cs % 100L;
+        return String.format(Locale.ITALY, "%02d:%02d.%02d", min, sec, cent);
+    }
+
+    private String shortName(String name) {
+        if (name == null) return "";
+        if (name.length() <= 12) return name;
+        return name.substring(0, 11) + "…";
+    }
+
+    private ScrollView scroll() {
+        ScrollView s = new ScrollView(this);
+        s.setFillViewport(true);
+        s.setBackgroundColor(BG);
+        s.setClipToPadding(false);
+        return s;
+    }
+
+    private LinearLayout pageBody() {
+        LinearLayout b = new LinearLayout(this);
+        b.setOrientation(LinearLayout.VERTICAL);
+        b.setPadding(dp(16), dp(14), dp(16), dp(22));
+        b.setBackgroundColor(BG);
+        return b;
+    }
+
+    private LinearLayout card() {
+        LinearLayout c = new LinearLayout(this);
+        c.setPadding(dp(14), dp(14), dp(14), dp(14));
+        c.setBackground(bg(CARD, 18, BORDER, 1));
+        return c;
+    }
+
+    private TextView sectionTitle(String s) {
+        TextView t = text(s, 15, WHITE, Typeface.BOLD);
+        t.setLetterSpacing(0.05f);
+        return t;
+    }
+
+    private TextView label(String s) {
+        return text(s, 12, Color.rgb(210,212,215), Typeface.BOLD);
+    }
+
+    private EditText edit(String hint, int inputType) {
+        EditText e = new EditText(this);
+        e.setHint(hint);
+        e.setHintTextColor(Color.rgb(112,116,121));
+        e.setTextColor(WHITE);
+        e.setTextSize(15);
+        e.setSingleLine(true);
+        e.setInputType(inputType);
+        e.setPadding(dp(14), 0, dp(14), 0);
+        e.setBackground(bg(Color.rgb(12,14,16), 14, BORDER, 1));
+        return e;
+    }
+
+    private EditText timeEdit(String hint) {
+        EditText e = edit(hint, InputType.TYPE_CLASS_NUMBER);
+        e.setGravity(Gravity.CENTER);
+        e.setTextSize(22);
+        e.setTypeface(Typeface.DEFAULT_BOLD);
+        return e;
+    }
+
+    private View timeField(EditText e, String label) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        box.addView(e, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)));
+        TextView l = text(label, 9, MUTED, Typeface.BOLD);
+        l.setGravity(Gravity.CENTER);
+        box.addView(l, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(20)));
+        return box;
+    }
+
+    private TextView colon() {
+        TextView c = text(":", 24, GOLD, Typeface.BOLD);
+        c.setGravity(Gravity.CENTER);
+        return c;
+    }
+
+    private Button actionButton(String s, int fill, int textColor) {
+        Button b = new Button(this);
+        b.setText(s);
+        b.setTextColor(textColor);
+        b.setTextSize(13);
+        b.setTypeface(Typeface.DEFAULT_BOLD);
+        b.setAllCaps(false);
+        b.setPadding(dp(10), 0, dp(10), 0);
+        b.setBackground(bg(fill, 16, lighten(fill), 1));
+        return b;
+    }
+
+    private int lighten(int c) {
+        return Color.rgb(Math.min(255, Color.red(c) + 35), Math.min(255, Color.green(c) + 35), Math.min(255, Color.blue(c) + 35));
+    }
+
+    private TextView text(String s, float sp, int color, int style) {
+        TextView t = new TextView(this);
+        t.setText(s);
+        t.setTextColor(color);
+        t.setTextSize(sp);
+        t.setTypeface(Typeface.create(Typeface.DEFAULT, style));
+        t.setIncludeFontPadding(false);
+        return t;
+    }
+
+    private GradientDrawable bg(int color, float radiusDp, int strokeColor, int strokeDp) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(color);
+        g.setCornerRadius(dp(radiusDp));
+        if (strokeDp > 0) g.setStroke(dp(strokeDp), strokeColor);
+        return g;
+    }
+
+    private View dividerV() {
+        View v = new View(this);
+        v.setBackgroundColor(Color.rgb(55,58,62));
+        return v;
+    }
+
+    private View space(int h) {
+        View v = new View(this);
+        v.setLayoutParams(new LinearLayout.LayoutParams(1, dp(h)));
+        return v;
+    }
+
+    private View spaceH(int w) {
+        View v = new View(this);
+        v.setLayoutParams(new LinearLayout.LayoutParams(dp(w), 1));
+        return v;
+    }
+
+    private LinearLayout.LayoutParams lpMatchWrap() {
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    }
+
+    private FrameLayout.LayoutParams match() {
+        return new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+    }
+
+    private int dp(float x) {
+        return (int) (x * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    private void toast(String s) {
+        Toast.makeText(this, s, Toast.LENGTH_SHORT).show();
+    }
+
+    static class ResultEntry {
+        String name; long cs; int avatar; long timestamp;
+        ResultEntry(String n, long c, int a, long t) { name=n; cs=c; avatar=a; timestamp=t; }
+    }
+
+    static class Leader {
+        String name; long bestCs; int attempts; int avatar; long bestTimestamp;
+       
