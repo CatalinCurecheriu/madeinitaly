@@ -1,0 +1,49 @@
+ Leader(String n, long b, int at, int av, long ts) { name=n; bestCs=b; attempts=at; avatar=av; bestTimestamp=ts; }
+    }
+
+    static class CircleAvatarView extends View {
+        private Bitmap bitmap;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private BitmapShader shader;
+        private int borderColor = Color.DKGRAY;
+        private int borderWidth = 1;
+
+        CircleAvatarView(Context context, Bitmap b) {
+            super(context);
+            bitmap = b;
+            border.setStyle(Paint.Style.STROKE);
+        }
+
+        void setSelectedRing(int color, int width) {
+            borderColor = color;
+            borderWidth = width;
+            invalidate();
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float cx = getWidth()/2f, cy = getHeight()/2f;
+            float r = Math.min(getWidth(), getHeight())/2f - Math.max(2, borderWidth);
+            if (bitmap != null) {
+                shader = new BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+                float scale = Math.max((2*r)/bitmap.getWidth(), (2*r)/bitmap.getHeight());
+                android.graphics.Matrix m = new android.graphics.Matrix();
+                m.setScale(scale, scale);
+                float dx = cx - bitmap.getWidth()*scale/2f;
+                float dy = cy - bitmap.getHeight()*scale/2f;
+                m.postTranslate(dx, dy);
+                shader.setLocalMatrix(m);
+                paint.setShader(shader);
+                canvas.drawCircle(cx, cy, r, paint);
+                paint.setShader(null);
+            } else {
+                paint.setColor(Color.rgb(45,48,52));
+                canvas.drawCircle(cx, cy, r, paint);
+            }
+            border.setStrokeWidth(borderWidth * getResources().getDisplayMetrics().density);
+            border.setColor(borderColor);
+            canvas.drawCircle(cx, cy, r, border);
+        }
+    }
+}
