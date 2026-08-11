@@ -1,0 +1,186 @@
+ 1), lpMatchWrap());
+            if (i < leaders.size() - 1) leaderboardContainer.addView(space(7));
+        }
+    }
+
+    private View podiumLarge(Leader l, int rank) {
+        LinearLayout p = new LinearLayout(this);
+        p.setOrientation(LinearLayout.VERTICAL);
+        p.setGravity(Gravity.CENTER);
+        p.setPadding(dp(4), dp(rank == 1 ? 0 : 28), dp(4), 0);
+        TextView medal = text(rank == 1 ? "♛" : rank == 2 ? "♜" : "♜", rank == 1 ? 46 : 30,
+                rank == 1 ? GOLD : rank == 2 ? Color.LTGRAY : Color.rgb(205,127,50), Typeface.BOLD);
+        medal.setGravity(Gravity.CENTER);
+        p.addView(medal, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(rank == 1 ? 52 : 40)));
+        CircleAvatarView av = new CircleAvatarView(this, avatarFor(l.avatar));
+        int c = rank == 1 ? GOLD : rank == 2 ? Color.LTGRAY : Color.rgb(205,127,50);
+        av.setSelectedRing(c, rank == 1 ? 6 : 4);
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(dp(rank == 1 ? 92 : 72), dp(rank == 1 ? 92 : 72));
+        alp.gravity = Gravity.CENTER;
+        p.addView(av, alp);
+        TextView name = text(shortName(l.name), 13, WHITE, Typeface.BOLD);
+        name.setGravity(Gravity.CENTER);
+        p.addView(name);
+        TextView tm = text(formatTime(l.bestCs), 16, rank == 1 ? GOLD : WHITE, Typeface.BOLD);
+        tm.setGravity(Gravity.CENTER);
+        p.addView(tm);
+        TextView base = text(String.valueOf(rank), rank == 1 ? 36 : 28, WHITE, Typeface.BOLD);
+        base.setGravity(Gravity.CENTER);
+        base.setBackground(bg(rank == 1 ? Color.rgb(125,90,0) : CARD_2, 10, c, 1));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(rank == 1 ? 68 : 54));
+        blp.setMargins(dp(4), dp(8), dp(4), 0);
+        p.addView(base, blp);
+        return p;
+    }
+
+    private View leaderRow(Leader l, int rank) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(10), dp(10), dp(8), dp(10));
+        int stroke = rank == 1 ? GOLD_DARK : BORDER;
+        row.setBackground(bg(CARD, 16, stroke, 1));
+
+        TextView r = text(String.valueOf(rank), 14, rank <= 3 ? GOLD : MUTED, Typeface.BOLD);
+        r.setGravity(Gravity.CENTER);
+        row.addView(r, new LinearLayout.LayoutParams(dp(32), dp(42)));
+
+        CircleAvatarView av = new CircleAvatarView(this, avatarFor(l.avatar));
+        av.setSelectedRing(rank == 1 ? GOLD : BORDER, rank == 1 ? 3 : 1);
+        row.addView(av, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        row.addView(spaceH(10));
+
+        LinearLayout info = new LinearLayout(this);
+        info.setOrientation(LinearLayout.VERTICAL);
+        TextView n = text(l.name, 14, WHITE, Typeface.BOLD);
+        TextView a = text(l.attempts + (l.attempts == 1 ? " tentativo" : " tentativi"), 10, MUTED, Typeface.NORMAL);
+        info.addView(n);
+        info.addView(space(2));
+        info.addView(a);
+        row.addView(info, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        TextView tm = text(formatTime(l.bestCs), 15, rank == 1 ? GOLD : Color.rgb(103, 230, 125), Typeface.BOLD);
+        tm.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        row.addView(tm, new LinearLayout.LayoutParams(dp(90), dp(46)));
+
+        TextView del = text("×", 22, RED, Typeface.BOLD);
+        del.setGravity(Gravity.CENTER);
+        del.setOnClickListener(v -> confirmDeleteParticipant(l.name));
+        row.addView(del, new LinearLayout.LayoutParams(dp(34), dp(46)));
+        return row;
+    }
+
+    private void saveManualResult() {
+        String name = cleanName(manualName.getText().toString());
+        if (name.isEmpty()) {
+            toast("Inserisci il nome del partecipante");
+            manualName.requestFocus();
+            return;
+        }
+        int min = number(manualMin.getText().toString());
+        int sec = number(manualSec.getText().toString());
+        int cs = number(manualCs.getText().toString());
+        if (sec > 59 || cs > 99) { toast("Secondi max 59, centesimi max 99"); return; }
+        long total = min * 6000L + sec * 100L + cs;
+        if (total <= 0) { toast("Inserisci un tempo maggiore di zero"); return; }
+        addResult(name, total, manualAvatar);
+        manualMin.setText(""); manualSec.setText(""); manualCs.setText("");
+        toast("Risultato salvato: " + name + " · " + formatTime(total));
+    }
+
+    private void timerMainAction() {
+        if (timerCountingDown) return;
+        if (timerRunning) {
+            stopTimer();
+            return;
+        }
+        startCountdown();
+    }
+
+    private void startCountdown() {
+        resetTimerInternal(false);
+        timerCountingDown = true;
+        timerMainButton.setEnabled(false);
+        timerMainButton.setAlpha(0.6f);
+        final TextView bigCircle = (TextView) timerCountdown.getTag();
+        final int[] step = {3};
+        Runnable countdown = new Runnable() {
+            @Override public void run() {
+                if (!timerCountingDown) return;
+                if (step[0] > 0) {
+                    timerCountdown.setText("PREPARATI…");
+                    bigCircle.setText(String.valueOf(step[0]));
+                    step[0]--;
+                    handler.postDelayed(this, 850L);
+                } else {
+                    timerCountdown.setText("VIA!");
+                    bigCircle.setText("GO");
+                    timerCountingDown = false;
+                    timerRunning = true;
+                    timerStartMs = SystemClock.elapsedRealtime();
+                    timerMainButton.setEnabled(true);
+                    timerMainButton.setAlpha(1f);
+                    timerMainButton.setText("■  STOP");
+                    timerMainButton.setBackground(bg(RED, 16, Color.rgb(255,120,110), 1));
+                    handler.post(timerTick);
+                }
+            }
+        };
+        handler.post(countdown);
+    }
+
+    private void stopTimer() {
+        if (!timerRunning) return;
+        timerRunning = false;
+        handler.removeCallbacks(timerTick);
+        timerFinalCs = Math.max(1L, (SystemClock.elapsedRealtime() - timerStartMs) / 10L);
+        timerDisplay.setText(formatTime(timerFinalCs));
+        timerCountdown.setText("TEMPO FERMATO");
+        ((TextView) timerCountdown.getTag()).setText("✓");
+        timerMainButton.setText("▶  NUOVO TENTATIVO");
+        timerMainButton.setBackground(bg(GREEN, 16, Color.rgb(83,230,116), 1));
+        timerSaveButton.setEnabled(true);
+        timerSaveButton.setAlpha(1f);
+    }
+
+    private void resetTimer() {
+        resetTimerInternal(true);
+    }
+
+    private void resetTimerInternal(boolean updateCircle) {
+        timerRunning = false;
+        timerCountingDown = false;
+        handler.removeCallbacks(timerTick);
+        timerFinalCs = 0L;
+        if (timerDisplay != null) timerDisplay.setText("00:00.00");
+        if (timerCountdown != null) timerCountdown.setText("PRONTO");
+        if (timerMainButton != null) {
+            timerMainButton.setEnabled(true);
+            timerMainButton.setAlpha(1f);
+            timerMainButton.setText("▶  AVVIA");
+            timerMainButton.setBackground(bg(GREEN, 16, Color.rgb(83,230,116), 1));
+        }
+        if (timerSaveButton != null) { timerSaveButton.setEnabled(false); timerSaveButton.setAlpha(0.45f); }
+        if (updateCircle && timerCountdown != null && timerCountdown.getTag() instanceof TextView) ((TextView) timerCountdown.getTag()).setText("3");
+    }
+
+    private void saveTimerResult() {
+        String name = cleanName(timerName.getText().toString());
+        if (name.isEmpty()) { toast("Inserisci il nome del partecipante"); timerName.requestFocus(); return; }
+        if (timerFinalCs <= 0) { toast("Prima completa un tentativo"); return; }
+        addResult(name, timerFinalCs, timerAvatar);
+        toast("Tempo salvato: " + name + " · " + formatTime(timerFinalCs));
+        timerSaveButton.setEnabled(false);
+        timerSaveButton.setAlpha(0.45f);
+    }
+
+    private void addResult(String name, long cs, int avatar) {
+        results.add(new ResultEntry(name, cs, avatar, System.currentTimeMillis()));
+        saveResults();
+        refreshAll();
+    }
+
+    private void confirmDeleteParticipant(String name) {
+        new AlertDialog.Builder(this)
+                .setTitle("Eliminare " + name + "?")
+                .setMe
