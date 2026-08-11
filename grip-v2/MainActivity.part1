@@ -1,0 +1,230 @@
+package it.gripchallenge.office.v2;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.Shader;
+import android.graphics.BitmapShader;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.SystemClock;
+import android.text.InputType;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.InputStream;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+public class MainActivity extends Activity {
+    private static final int BG = Color.rgb(7, 9, 11);
+    private static final int CARD = Color.rgb(17, 20, 23);
+    private static final int CARD_2 = Color.rgb(24, 27, 31);
+    private static final int GOLD = Color.rgb(255, 196, 0);
+    private static final int GOLD_DARK = Color.rgb(176, 121, 0);
+    private static final int GREEN = Color.rgb(39, 201, 87);
+    private static final int RED = Color.rgb(255, 76, 67);
+    private static final int WHITE = Color.rgb(248, 248, 248);
+    private static final int MUTED = Color.rgb(165, 169, 174);
+    private static final int BORDER = Color.rgb(57, 61, 66);
+
+    private final Handler handler = new Handler();
+    private final List<ResultEntry> results = new ArrayList<>();
+    private final Bitmap[] avatars = new Bitmap[8];
+    private Bitmap productBitmap;
+    private SharedPreferences prefs;
+
+    private FrameLayout pageHost;
+    private TextView navHome;
+    private TextView navTimer;
+    private TextView navRank;
+    private View homePage;
+    private View timerPage;
+    private View rankPage;
+
+    private TextView statParticipants;
+    private TextView statRecord;
+    private TextView statAttempts;
+    private LinearLayout homeTop3;
+    private EditText manualName;
+    private EditText manualMin;
+    private EditText manualSec;
+    private EditText manualCs;
+    private int manualAvatar = 0;
+    private final List<CircleAvatarView> manualAvatarViews = new ArrayList<>();
+
+    private EditText timerName;
+    private int timerAvatar = 0;
+    private final List<CircleAvatarView> timerAvatarViews = new ArrayList<>();
+    private TextView timerCountdown;
+    private TextView timerDisplay;
+    private Button timerMainButton;
+    private Button timerResetButton;
+    private Button timerSaveButton;
+    private boolean timerRunning = false;
+    private boolean timerCountingDown = false;
+    private long timerStartMs = 0L;
+    private long timerFinalCs = 0L;
+
+    private LinearLayout podiumContainer;
+    private LinearLayout leaderboardContainer;
+    private TextView rankEmpty;
+
+    private final Runnable timerTick = new Runnable() {
+        @Override public void run() {
+            if (!timerRunning) return;
+            timerFinalCs = Math.max(0L, (SystemClock.elapsedRealtime() - timerStartMs) / 10L);
+            timerDisplay.setText(formatTime(timerFinalCs));
+            handler.postDelayed(this, 20L);
+        }
+    };
+
+    @Override protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Window w = getWindow();
+        w.setStatusBarColor(BG);
+        w.setNavigationBarColor(BG);
+        w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+
+        prefs = getSharedPreferences("grip_challenge_v2", MODE_PRIVATE);
+        loadAssets();
+        loadResults();
+        buildApp();
+        showPage(0);
+        refreshAll();
+    }
+
+    private void loadAssets() {
+        productBitmap = loadBitmap("product.jpg");
+        for (int i = 0; i < avatars.length; i++) avatars[i] = loadBitmap("avatar" + (i + 1) + ".png");
+    }
+
+    private Bitmap loadBitmap(String name) {
+        try {
+            InputStream in = getAssets().open(name);
+            Bitmap b = BitmapFactory.decodeStream(in);
+            in.close();
+            return b;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void buildApp() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(BG);
+        root.setFitsSystemWindows(true);
+
+        pageHost = new FrameLayout(this);
+        root.addView(pageHost, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        homePage = buildHomePage();
+        timerPage = buildTimerPage();
+        rankPage = buildLeaderboardPage();
+        pageHost.addView(homePage, match());
+        pageHost.addView(timerPage, match());
+        pageHost.addView(rankPage, match());
+
+        root.addView(buildBottomNav(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(70)));
+        setContentView(root);
+    }
+
+    private View buildBottomNav() {
+        LinearLayout nav = new LinearLayout(this);
+        nav.setOrientation(LinearLayout.HORIZONTAL);
+        nav.setGravity(Gravity.CENTER);
+        nav.setPadding(dp(10), dp(4), dp(10), dp(4));
+        nav.setBackground(bg(Color.rgb(10, 12, 14), 0, Color.rgb(40, 43, 47), 1));
+
+        navHome = navItem("⌂", "Home");
+        navTimer = navItem("◷", "Timer");
+        navRank = navItem("♛", "Classifica");
+        navHome.setOnClickListener(v -> showPage(0));
+        navTimer.setOnClickListener(v -> showPage(1));
+        navRank.setOnClickListener(v -> showPage(2));
+        nav.addView(navHome, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        nav.addView(navTimer, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        nav.addView(navRank, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        return nav;
+    }
+
+    private TextView navItem(String icon, String label) {
+        TextView t = text(icon + "\n" + label, 12, MUTED, Typeface.BOLD);
+        t.setGravity(Gravity.CENTER);
+        t.setLineSpacing(0, 0.9f);
+        return t;
+    }
+
+    private void showPage(int page) {
+        homePage.setVisibility(page == 0 ? View.VISIBLE : View.GONE);
+        timerPage.setVisibility(page == 1 ? View.VISIBLE : View.GONE);
+        rankPage.setVisibility(page == 2 ? View.VISIBLE : View.GONE);
+        navHome.setTextColor(page == 0 ? GOLD : MUTED);
+        navTimer.setTextColor(page == 1 ? GOLD : MUTED);
+        navRank.setTextColor(page == 2 ? GOLD : MUTED);
+        if (page == 2) refreshLeaderboard();
+    }
+
+    private View buildHomePage() {
+        ScrollView scroll = scroll();
+        LinearLayout body = pageBody();
+        scroll.addView(body);
+
+        body.addView(buildHero(), lpMatchWrap());
+        body.addView(space(14));
+        body.addView(buildStatsCard(), lpMatchWrap());
+        body.addView(space(18));
+
+        TextView addTitle = sectionTitle("AGGIUNGI RISULTATO MANUALE");
+        body.addView(addTitle);
+        body.addView(space(8));
+        body.addView(buildManualCard(), lpMatchWrap());
+        body.addView(space(18));
+
+        TextView topTitle = sectionTitle("PODIO ATTUALE");
+        body.addView(topTitle);
+        body.addView(space(8));
+        homeTop3 = new LinearLayout(this);
+        homeTop3.setOrientation(LinearLayout.HORIZONTAL);
+        homeTop3.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        body.addView(homeTop3, lpMatchWrap());
+        body.addView(space(18));
+
+        LinearLayout quick = new LinearLayout(this);
+        quick.setOrientation(LinearLayout.HORIZONTAL);
+        Button goTimer = actionButton("◷  AVVIA TIMER", GREEN, Color.WHITE);
+        Button goRank = actionButton("♛  CLASSIFICA", GOLD, Color.BLACK);
+        goTimer.setOnClickListener(v -> showPage(1));
+        goRank.setOnCl
