@@ -1,0 +1,82 @@
+name: Build Grip Challenge V2 APK
+
+on:
+  push:
+    branches:
+      - grip-v2-build-20260811
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+          yes | "${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile, package and sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+          ANDROID_JAR="${SDK_ROOT}/platforms/android-35/android.jar"
+          BUILD_TOOLS="${SDK_ROOT}/build-tools/35.0.0"
+          rm -rf build-grip
+          mkdir -p build-grip/classes build-grip/dex build-grip/assets
+          cat grip-v2/MainActivity.part* > build-grip/MainActivity.java
+          cat grip-v2/assetszip.part* > build-grip/assets.zip.b64
+          base64 -d build-grip/assets.zip.b64 > build-grip/assets.zip
+          unzip -q build-grip/assets.zip -d build-grip/assets-raw
+          cp build-grip/assets-raw/product_tiny.jpg build-grip/assets/product.jpg
+          for i in 1 2 3 4 5 6 7 8; do cp "build-grip/assets-raw/avatar${i}_tiny.jpg" "build-grip/assets/avatar${i}.png"; done
+          javac -encoding UTF-8 -source 8 -target 8 -classpath "${ANDROID_JAR}" -d build-grip/classes build-grip/MainActivity.java
+          "${BUILD_TOOLS}/d8" --lib "${ANDROID_JAR}" --min-api 26 --output build-grip/dex $(find build-grip/classes -name '*.class' -type f)
+          "${BUILD_TOOLS}/aapt2" link -o build-grip/app-unsigned.apk --manifest grip-v2/AndroidManifest.xml -I "${ANDROID_JAR}" --min-sdk-version 26 --target-sdk-version 34 --version-code 2 --version-name 2.0
+          ( cd build-grip/dex && zip -q -u ../app-unsigned.apk classes.dex )
+          ( cd build-grip && zip -q -r -u app-unsigned.apk assets )
+          keytool -genkeypair -keystore build-grip/grip-v2-release.jks -storepass gripchallenge -keypass gripchallenge -alias gripchallenge -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Grip Challenge V2, OU=Office Challenge, O=Grip Challenge, L=Torino, ST=Piemonte, C=IT"
+          "${BUILD_TOOLS}/zipalign" -f -p 4 build-grip/app-unsigned.apk build-grip/app-aligned.apk
+          "${BUILD_TOOLS}/apksigner" sign --ks build-grip/grip-v2-release.jks --ks-pass pass:gripchallenge --key-pass pass:gripchallenge --out build-grip/Grip-Challenge-40KG-V2.apk build-grip/app-aligned.apk
+          "${BUILD_TOOLS}/apksigner" verify --verbose --print-certs build-grip/Grip-Challenge-40KG-V2.apk
+          sha256sum build-grip/Grip-Challenge-40KG-V2.apk | tee build-grip/Grip-Challenge-40KG-V2.apk.sha256
+      - name: Smoke test install and launch
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: |
+            adb install -r build-grip/Grip-Challenge-40KG-V2.apk
+            adb shell am force-stop it.gripchallenge.office.v2
+            adb shell am start -W -n it.gripchallenge.office.v2/.MainActivity | tee build-grip/launch-result.txt
+            grep -q "Status: ok" build-grip/launch-result.txt
+            sleep 3
+            adb shell pidof it.gripchallenge.office.v2
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: grip-challenge-v2-tested
+          path: |
+            build-grip/Grip-Challenge-40KG-V2.apk
+            build-grip/Grip-Challenge-40KG-V2.apk.sha256
+            build-grip/launch-result.txt
+          if-no-files-found: error
+          retention-days: 7
