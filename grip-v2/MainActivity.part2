@@ -1,0 +1,179 @@
+ickListener(v -> showPage(2));
+        quick.addView(goTimer, new LinearLayout.LayoutParams(0, dp(54), 1));
+        quick.addView(spaceH(10));
+        quick.addView(goRank, new LinearLayout.LayoutParams(0, dp(54), 1));
+        body.addView(quick, lpMatchWrap());
+        body.addView(space(28));
+        return scroll;
+    }
+
+    private View buildHero() {
+        FrameLayout hero = new FrameLayout(this);
+        hero.setBackground(bg(CARD, 24, BORDER, 1));
+        hero.setClipToOutline(true);
+        hero.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dp(24));
+            }
+        });
+
+        ImageView image = new ImageView(this);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        image.setImageBitmap(productBitmap);
+        hero.addView(image, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(250)));
+
+        View shade = new View(this);
+        GradientDrawable shadeBg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x12000000, 0x33000000, 0xE6000000});
+        shade.setBackground(shadeBg);
+        hero.addView(shade, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(250)));
+
+        TextView crown = text("♛", 32, GOLD, Typeface.BOLD);
+        crown.setGravity(Gravity.CENTER);
+        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(dp(58), dp(58), Gravity.TOP | Gravity.END);
+        cp.setMargins(0, dp(8), dp(10), 0);
+        hero.addView(crown, cp);
+
+        LinearLayout titleWrap = new LinearLayout(this);
+        titleWrap.setOrientation(LinearLayout.VERTICAL);
+        titleWrap.setPadding(dp(18), 0, dp(18), dp(18));
+        TextView small = text("OFFICE CHALLENGE", 12, GOLD, Typeface.BOLD);
+        small.setLetterSpacing(0.12f);
+        TextView title = text("GRIP CHALLENGE\n40 KG", 34, WHITE, Typeface.BOLD);
+        title.setLineSpacing(0, 0.92f);
+        TextView sub = text("Tieni il grip completamente chiuso il più a lungo possibile.", 13, Color.rgb(220,220,220), Typeface.NORMAL);
+        titleWrap.addView(small);
+        titleWrap.addView(space(3));
+        titleWrap.addView(title);
+        titleWrap.addView(space(6));
+        titleWrap.addView(sub);
+        FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
+        hero.addView(titleWrap, tp);
+        return hero;
+    }
+
+    private View buildStatsCard() {
+        LinearLayout card = card();
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        statParticipants = text("0", 22, WHITE, Typeface.BOLD);
+        statRecord = text("--:--.--", 20, GOLD, Typeface.BOLD);
+        statAttempts = text("0", 22, WHITE, Typeface.BOLD);
+        card.addView(statBlock("PARTECIPANTI", statParticipants), new LinearLayout.LayoutParams(0, dp(94), 1));
+        card.addView(dividerV());
+        card.addView(statBlock("RECORD", statRecord), new LinearLayout.LayoutParams(0, dp(94), 1));
+        card.addView(dividerV());
+        card.addView(statBlock("TENTATIVI", statAttempts), new LinearLayout.LayoutParams(0, dp(94), 1));
+        return card;
+    }
+
+    private View statBlock(String label, TextView value) {
+        LinearLayout b = new LinearLayout(this);
+        b.setGravity(Gravity.CENTER);
+        b.setOrientation(LinearLayout.VERTICAL);
+        TextView l = text(label, 10, MUTED, Typeface.BOLD);
+        l.setGravity(Gravity.CENTER);
+        value.setGravity(Gravity.CENTER);
+        b.addView(l);
+        b.addView(space(6));
+        b.addView(value);
+        return b;
+    }
+
+    private View buildManualCard() {
+        LinearLayout c = card();
+        c.setOrientation(LinearLayout.VERTICAL);
+
+        TextView labelName = label("Nome partecipante");
+        manualName = edit("Inserisci nome…", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        c.addView(labelName);
+        c.addView(space(6));
+        c.addView(manualName, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)));
+        c.addView(space(14));
+
+        c.addView(label("Scegli avatar"));
+        c.addView(space(7));
+        c.addView(buildAvatarPicker(false), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(62)));
+        c.addView(space(16));
+
+        c.addView(label("Tempo di tenuta"));
+        c.addView(space(7));
+        LinearLayout timeRow = new LinearLayout(this);
+        timeRow.setOrientation(LinearLayout.HORIZONTAL);
+        manualMin = timeEdit("mm");
+        manualSec = timeEdit("ss");
+        manualCs = timeEdit("cc");
+        timeRow.addView(timeField(manualMin, "MIN"), new LinearLayout.LayoutParams(0, dp(78), 1));
+        timeRow.addView(colon());
+        timeRow.addView(timeField(manualSec, "SEC"), new LinearLayout.LayoutParams(0, dp(78), 1));
+        timeRow.addView(colon());
+        timeRow.addView(timeField(manualCs, "CENT"), new LinearLayout.LayoutParams(0, dp(78), 1));
+        c.addView(timeRow);
+        c.addView(space(16));
+
+        Button save = actionButton("＋  SALVA RISULTATO", GOLD, Color.BLACK);
+        save.setOnClickListener(v -> saveManualResult());
+        c.addView(save, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)));
+        return c;
+    }
+
+    private View buildAvatarPicker(boolean forTimer) {
+        HorizontalScrollView hsv = new HorizontalScrollView(this);
+        hsv.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(2), 0, dp(2), 0);
+        List<CircleAvatarView> target = forTimer ? timerAvatarViews : manualAvatarViews;
+        target.clear();
+        for (int i = 0; i < avatars.length; i++) {
+            final int index = i;
+            CircleAvatarView av = new CircleAvatarView(this, avatars[i]);
+            av.setSelectedRing(i == 0 ? GOLD : BORDER, i == 0 ? 4 : 1);
+            av.setOnClickListener(v -> selectAvatar(index, forTimer));
+            row.addView(av, new LinearLayout.LayoutParams(dp(54), dp(54)));
+            if (i < avatars.length - 1) row.addView(spaceH(8));
+            target.add(av);
+        }
+        hsv.addView(row);
+        return hsv;
+    }
+
+    private void selectAvatar(int index, boolean forTimer) {
+        if (forTimer) timerAvatar = index; else manualAvatar = index;
+        List<CircleAvatarView> list = forTimer ? timerAvatarViews : manualAvatarViews;
+        for (int i = 0; i < list.size(); i++) list.get(i).setSelectedRing(i == index ? GOLD : BORDER, i == index ? 4 : 1);
+    }
+
+    private View buildTimerPage() {
+        ScrollView scroll = scroll();
+        LinearLayout body = pageBody();
+        scroll.addView(body);
+
+        TextView title = text("TIMER", 26, GOLD, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        body.addView(title);
+        body.addView(space(12));
+
+        LinearLayout userCard = card();
+        userCard.setOrientation(LinearLayout.VERTICAL);
+        userCard.addView(label("Partecipante"));
+        userCard.addView(space(6));
+        timerName = edit("Nome partecipante…", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        userCard.addView(timerName, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50)));
+        userCard.addView(space(10));
+        userCard.addView(buildAvatarPicker(true), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(60)));
+        body.addView(userCard, lpMatchWrap());
+        body.addView(space(18));
+
+        timerCountdown = text("PRONTO", 18, GOLD, Typeface.BOLD);
+        timerCountdown.setGravity(Gravity.CENTER);
+        timerCountdown.setBackground(bg(Color.rgb(31, 27, 12), 30, GOLD_DARK, 1));
+        body.addView(timerCountdown, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
+        body.addView(space(18));
+
+        TextView circle = text("3", 100, WHITE, Typeface.BOLD);
+        circle.setGravity(Gravity.CENTER);
+        circle.setBackground(bg(Color.rgb(13,15,17), 160, GOLD, 4));
+        timerCountdown.setTag(circle);
+        LinearLayout.LayoutParams circleLp = new LinearLayout.LayoutParams(dp(230), dp(230));
+        circleLp.gravity = Gravity.CENTER_HORIZONTAL;
